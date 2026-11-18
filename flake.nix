@@ -1,31 +1,32 @@
 {
   description = "status-api: on-demand machine status as JSON over HTTP";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
+  };
 
   outputs =
-    { self, nixpkgs }:
-    let
-      forAllSystems = nixpkgs.lib.genAttrs [
-        "x86_64-linux"
-        "aarch64-linux"
-      ];
-    in
-    {
-      packages = forAllSystems (system: {
-        default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
-      });
+    { flake-parts, ... }@inputs:
+    flake-parts.lib.mkFlake { inherit inputs; } (
+      { self, ... }:
+      {
+        systems = [ "x86_64-linux" ];
 
-      # 소비자의 pkgs로 빌드한다 — services.status-api.package 기본값.
-      nixosModules.default = ./nix/module.nix;
+        perSystem =
+          { pkgs, system, ... }:
+          {
+            packages.default = pkgs.callPackage ./package.nix { };
 
-      checks.x86_64-linux =
-        let
-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
-        in
-        {
-          package = self.packages.x86_64-linux.default;
-          vm = pkgs.testers.runNixOSTest (import ./nix/test.nix { inherit self; });
-        };
-    };
+            checks = {
+              package = self.packages.${system}.default;
+              vm = pkgs.testers.runNixOSTest (import ./nix/test.nix { inherit self; });
+            };
+          };
+
+        # 소비자의 pkgs로 빌드한다 — services.status-api.package 기본값.
+        flake.nixosModules.default = ./nix/module.nix;
+      }
+    );
 }

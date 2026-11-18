@@ -68,7 +68,11 @@ in
       path = [ config.systemd.package ];
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
-          [ (lib.getExe cfg.package) ] ++ lib.concatMap (d: [ "--disk" d ]) cfg.disks
+          [ (lib.getExe cfg.package) ]
+          ++ lib.concatMap (d: [
+            "--disk"
+            d
+          ]) cfg.disks
         );
         Restart = "on-failure";
 
